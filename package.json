@@ -1,0 +1,19 @@
+{
+  "name": "gennady-testwebapp",
+  "version": "1.0.0",
+  "description": "The test web app for ***.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Gennady Zykov",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "ejs": "^2.5.7",
+    "express": "^4.15.3",
+    "nan": "^2.6.2",
+    "node-gyp": "^3.6.2"
+  },
+  "gypfile": true
+}
