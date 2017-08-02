@@ -1,15 +1,11 @@
 #include <nan.h>
 #include <string>
 #include <lm.h>
-//#include <io.h>
 #pragma comment(lib,"netapi32.lib")
 
 using namespace std;
 
 void userCheck(const Nan::FunctionCallbackInfo<v8::Value>& info) {
-
-	//SetConsoleOutputCP(CP_UTF8);
-	//_setmode(_fileno(stdout), _O_U8TEXT);
 
 	if (info.Length() < 1)
 	{
@@ -24,11 +20,11 @@ void userCheck(const Nan::FunctionCallbackInfo<v8::Value>& info) {
 	}
 	
 	v8::String::Utf8Value param1(info[0]->ToString());
-	char* str = *param1;
-	//fprintf(stderr, "Selected user name: %s.\nSearch user name:\n", str);
+	string str = string(*param1);
+	char* str2 = NULL;
 	bool uexists = false;
 
-	LPUSER_INFO_0 pBuf = NULL;
+	LPUSER_INFO_0 pBuf = NULL; // 
 	LPUSER_INFO_0 pTmpBuf;
 	DWORD dwLevel = 0;
 	DWORD dwPrefMaxLen = MAX_PREFERRED_LENGTH;
@@ -38,38 +34,53 @@ void userCheck(const Nan::FunctionCallbackInfo<v8::Value>& info) {
 	NET_API_STATUS nStatus;
 	LPCWSTR pszServerName = NULL;
 
-	nStatus = NetUserEnum(pszServerName,
-		dwLevel,
-		FILTER_NORMAL_ACCOUNT,
-		(LPBYTE*)&pBuf,
-		dwPrefMaxLen,
-		&dwEntriesRead,
-		&dwTotalEntries,
-		&dwResumeHandle);
-	if ((nStatus == NERR_Success) || (nStatus == ERROR_MORE_DATA))
-	{
-		if ((pTmpBuf = pBuf) != NULL)
+	do // L1
+    {
+		nStatus = NetUserEnum(pszServerName,
+			dwLevel,
+			FILTER_NORMAL_ACCOUNT,
+			(LPBYTE*)&pBuf,
+			dwPrefMaxLen,
+			&dwEntriesRead,
+			&dwTotalEntries,
+			&dwResumeHandle);
+			
+		if ((nStatus == NERR_Success) || (nStatus == ERROR_MORE_DATA))
 		{
-			for (DWORD i = 0; (i < dwEntriesRead); i++)
+			if ((pTmpBuf = pBuf) != NULL)
 			{
-				if (pTmpBuf == NULL) break;
-				int length = WideCharToMultiByte(CP_UTF8, 0, pTmpBuf->usri0_name, -1, 0, 0, NULL, NULL);
-				char* str2 = new char[length];
-				WideCharToMultiByte(CP_UTF8, 0, pTmpBuf->usri0_name, -1, str2 , length, NULL, NULL);
-				//fprintf(stderr, "%d. %s\n", i+1, str2);
-				if ((string)str == (string)str2)
+				for (DWORD i = 0; (i < dwEntriesRead); i++)
 				{
-					uexists = true;
-					break;
+					// Проверка доступа
+					if (pTmpBuf == NULL) break;
+					int length = WideCharToMultiByte(CP_UTF8, 0, pTmpBuf->usri0_name, -1, 0, 0, NULL, NULL);
+					str2 = new char[length];
+					WideCharToMultiByte(CP_UTF8, 0, pTmpBuf->usri0_name, -1, str2 , length, NULL, NULL);
+					if (str == (string)str2)
+					{
+						uexists = true;
+						break;
+					}
+					pTmpBuf++;
 				}
-				delete[] str2;
-				pTmpBuf++;
+				// Если пользователь найден, завершаем цикл L1
+				if (uexists) break;
 			}
 		}
+	
+		if (pBuf != NULL)
+		{
+			NetApiBufferFree(pBuf);
+			pBuf = NULL;
+		}
 	}
- 
+	// Вызывать NetUserEnum, пока есть больше доступных записей
+	while (nStatus == ERROR_MORE_DATA);
+	
 	if (pBuf != NULL)
 		NetApiBufferFree(pBuf);
+	if (str2 != NULL)
+		delete[] str2;
 
 	v8::Local<v8::Boolean> v8b = Nan::New(uexists);
 	info.GetReturnValue().Set(v8b);
